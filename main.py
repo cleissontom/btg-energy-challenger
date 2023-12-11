@@ -99,8 +99,8 @@ def main() -> None:
 
     df_all_lat_long.plot.scatter(x='all_lat', y='all_long', c='acum_precipition', colormap='Greys',
                                  title='Camargos - Bacia do Grande - Precipitação acumulada',
-                                 xlabel='latitude', ylabel='longitude'). \
-        get_figure().savefig(main_path + '\\precipition_selected_area.png')
+                                 xlabel='latitude', ylabel='longitude').\
+                                get_figure().savefig(main_path + '\\precipition_selected_area.png')
 
 
 if __name__ == '__main__':
