@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
+import shapely.plotting
 
 
 def read_data_file(directory_files: list) -> pd.DataFrame:
@@ -63,6 +64,9 @@ def main() -> None:
     main_path = os.getcwd() + "\\btg-energy-challenge"
     contour_df: pd.DataFrame = read_contour_file(main_path + '\\PSATCMG_CAMARGOS.bln')
 
+    selected_area = Polygon(contour_df.values)
+    # polygon = Polygon(tuple(x) for x in contour_df[['lat','long']].to_numpy())
+
     main_path_forecast = os.getcwd() + "\\btg-energy-challenge\\forecast_files"
     files_in_path = [f for f in listdir(main_path_forecast) if isfile(join(main_path_forecast, f))]
     files_in_path = [main_path_forecast + "\\" + filename for filename in files_in_path]
@@ -71,37 +75,57 @@ def main() -> None:
     # acumulated precipitation
     data_df_acum = data_df.groupby(['lat', 'long']).agg(acum_value=('data_value', 'sum')).reset_index()
 
-    # create points inside contour
-    range_lat = [contour_df['lat'].min(), contour_df['lat'].max()]
-    range_long = [contour_df['long'].min(), contour_df['long'].max()]
-    points_range_lat = np.arange(range_lat[0], range_lat[1], 0.01)
-    points_range_long = np.arange(range_long[0], range_long[1], 0.01)
-    df_lat = pd.DataFrame({'all_lat': points_range_lat})
-    df_long = pd.DataFrame({'all_long': points_range_long})
-    df_all_lat_long = df_lat.merge(df_long, how='cross')
+    # check if point of data is inside contour
+    data_df_acum['is_contour'] = data_df_acum.apply(
+        lambda x: selected_area.contains(Point(x['lat'], x['long'])), axis=1)
+    data_df_acum['is_contour'] = data_df_acum['is_contour'].astype(int)
 
-    selected_area = Polygon(contour_df.values)
-    # polygon = Polygon(tuple(x) for x in contour_df[['lat','long']].to_numpy())
+    data_df_acum.groupby('is_contour')['acum_value'].count(),data_df_acum.groupby('is_contour')['acum_value'].sum()
+
+    # plot
+    x = (contour_df['lat'].values)
+    y = (contour_df['long'].values)
+
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    for pt in range(0, len(data_df_acum[data_df_acum['is_contour'] == 1])):
+        ax.plot(data_df_acum[data_df_acum['is_contour'] == 1]['lat'].values[pt],
+                data_df_acum[data_df_acum['is_contour'] == 1]['long'].values[pt], "or")
+    fig.suptitle('Camargos - Bacia do Grande - Precipitação acumulada')
+    #plt.show()
+    plt.savefig('precipition_save_figure.png')
+
+
+    ## not used
+    # =============================
+    # create points inside contour
+    # range_lat = [contour_df['lat'].min(), contour_df['lat'].max()]
+    # range_long = [contour_df['long'].min(), contour_df['long'].max()]
+    # points_range_lat = np.arange(range_lat[0], range_lat[1], 0.01)
+    # points_range_long = np.arange(range_long[0], range_long[1], 0.01)
+    # df_lat = pd.DataFrame({'all_lat': points_range_lat})
+    # df_long = pd.DataFrame({'all_long': points_range_long})
+    # df_all_lat_long = df_lat.merge(df_long, how='cross')
+
+
 
     # check if data is inside contour
-    df_all_lat_long['is_contour'] = df_all_lat_long.apply(
-        lambda x: selected_area.contains(Point(x['all_lat'], x['all_long'])), axis=1)
-    df_all_lat_long['is_contour'] = df_all_lat_long['is_contour'].astype(int)
-
-    # calculate precipition inside contour
-    df_all_lat_long['acum_precipition'] = 0
-    df_all_lat_long['acum_precipition'] = np.where(df_all_lat_long['is_contour'] == 0, 0, df_all_lat_long.apply(
-        lambda x: calculate_precipition_by_point(x['all_lat'], x['all_long'], data_df_acum, tolerance_area=0.25),
-        axis=1))
+    # df_all_lat_long['is_contour'] = df_all_lat_long.apply(
+    #     lambda x: selected_area.contains(Point(x['all_lat'], x['all_long'])), axis=1)
+    # df_all_lat_long['is_contour'] = df_all_lat_long['is_contour'].astype(int)
+    #
+    # # calculate precipition inside contour
+    # df_all_lat_long['acum_precipition'] = 0
+    # df_all_lat_long['acum_precipition'] = np.where(df_all_lat_long['is_contour'] == 0, 0, df_all_lat_long.apply(
+    #     lambda x: calculate_precipition_by_point(x['all_lat'], x['all_long'], data_df_acum, tolerance_area=0.25),
+    #     axis=1))
 
     print('Precipition in selected region:\n',
-          df_all_lat_long[df_all_lat_long['is_contour'] == 1]['acum_precipition'].mean())
+          data_df_acum.query('is_contour == 1')['acum_value'].sum())
 
-    df_all_lat_long.plot.scatter(x='all_lat', y='all_long', c='acum_precipition', colormap='Greys',
-                                 title='Camargos - Bacia do Grande - Precipitação acumulada',
-                                 xlabel='latitude', ylabel='longitude').\
-                                get_figure().savefig(main_path + '\\precipition_selected_area.png')
 
 
 if __name__ == '__main__':
     main()
+
+
