@@ -123,8 +123,6 @@ def main() -> None:
     print('Precipition in selected region:\n',
           data_df_acum.query('is_contour == 1')['acum_value'].sum())
 
-
-
 if __name__ == '__main__':
     main()
 
